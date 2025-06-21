@@ -22,6 +22,7 @@ specify them as command line arguments.
 - Converts Substack posts into Markdown files.
 - Generates an HTML file to browse Markdown files.
 - Supports free and premium content (with subscription).
+- Premium Selenium scraper downloads post images so they appear in the exported HTML offline.
 - The HTML interface allows sorting essays by date or likes.
 
 ## Installation

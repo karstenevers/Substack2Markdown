@@ -433,9 +433,62 @@ class PremiumSubstackScraper(BaseSubstackScraper):
         """
         try:
             self.driver.get(url)
-            return BeautifulSoup(self.driver.page_source, "html.parser")
+            self._scroll_to_bottom()
+            soup = BeautifulSoup(self.driver.page_source, "html.parser")
+            self._inject_lazy_image_sources(soup)
+            slug = url.rstrip('/').split('/')[-1]
+            self._download_images(soup, slug)
+            return soup
         except Exception as e:
             raise ValueError(f"Error fetching page: {e}") from e
+
+    def _scroll_to_bottom(self) -> None:
+        """Scroll the page to the bottom to trigger lazy loading of images."""
+        last_height = self.driver.execute_script("return document.body.scrollHeight")
+        while True:
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+            sleep(1)
+            new_height = self.driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
+
+    @staticmethod
+    def _inject_lazy_image_sources(soup: BeautifulSoup) -> None:
+        """Populate missing ``src`` attributes for lazy loaded images."""
+        for img in soup.find_all("img"):
+            src = img.get("src")
+            if src and not src.startswith("data:"):
+                continue
+            src = img.get("data-src") or img.get("data-original") or img.get("data-url")
+            if not src and img.get("srcset"):
+                src = img["srcset"].split(",")[0].strip().split(" ")[0]
+            if src:
+                img["src"] = src
+
+    def _download_images(self, soup: BeautifulSoup, slug: str) -> None:
+        """Download images in the soup and update their ``src`` to local paths."""
+        asset_dir = os.path.join("assets", "images", self.writer_name, slug)
+        os.makedirs(asset_dir, exist_ok=True)
+        html_filepath = os.path.join(self.html_save_dir, f"{slug}.html")
+
+        for index, img in enumerate(soup.find_all("img"), start=1):
+            src = img.get("src")
+            if not src or not src.startswith("http"):
+                continue
+            try:
+                response = requests.get(src, timeout=10)
+                if not response.ok:
+                    continue
+                ext = os.path.splitext(urlparse(src).path)[1] or ".jpg"
+                filename = f"img_{index}{ext}"
+                file_path = os.path.join(asset_dir, filename)
+                with open(file_path, "wb") as f:
+                    f.write(response.content)
+                rel_path = os.path.relpath(file_path, os.path.dirname(html_filepath))
+                img["src"] = rel_path.replace("\\", "/")
+            except Exception as e:
+                print(f"Error downloading image {src}: {e}")
 
 
 def parse_args() -> argparse.Namespace:
