@@ -1,5 +1,6 @@
 # Ignore Python-related files
 config.py
+config_local.py
 setup.py
 **/__pycache__/
 
@@ -20,3 +21,9 @@ substack_html_pages/*
 
 # Ignore substack_md_files directory
 /substack_md_files/
+
+# Ignore test directory
+test/
+
+# Ignore images directory
+assets/images/
