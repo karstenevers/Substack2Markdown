@@ -322,13 +322,13 @@ class BaseSubstackScraper(ABC):
         # Convert article HTML → Markdown
         md_body = self.html_to_md(html_fragment)
 
-        # ---------- bring in EVERY <audio> tag ------------------------------
+        # Bring in every <audio> tag
         audio_tags_html = "\n\n".join(str(tag) for tag in soup.find_all("audio"))
         if audio_tags_html:
             # Put the player(s) *before* the article for visibility
             md_body = f"{audio_tags_html}\n\n{md_body}"
 
-        # ---------- combine with metadata header ----------------------------
+        # Combine with metadata header 
         md_complete = self.combine_metadata_and_content(
             title, subtitle, date, like_count, md_body
         )
