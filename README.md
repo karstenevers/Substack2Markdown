@@ -4,6 +4,12 @@ This is a fork of [Substack2Markdown](https://github.com/timf34/Substack2Markdow
 
 :heavy_check_mark: Images in substack articles are downloaded by PremiumSubstackScraper and embedded in HTML pages.
 
+## Installation
+
+- Download repo.
+- Rename `config.py` to `config_local.py` and insert Substack credentials.
+- Run CLI as described in [Usage](#usage).
+
 # Substack2Markdown
 
 Substack2Markdown is a Python tool for downloading free and premium Substack posts and saving them as both Markdown and 

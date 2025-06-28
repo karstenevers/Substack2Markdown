@@ -176,6 +176,51 @@ class BaseSubstackScraper(ABC):
         This method converts Markdown to HTML
         """
         return markdown.markdown(md_content, extensions=['extra'])
+    
+    def _download_audio(self, soup: BeautifulSoup, slug: str) -> None:
+        """
+        Download every <audio> element to assets/audio/<writer>/<slug>/,
+        then rewrite each tag’s src so the offline HTML uses a relative link.
+        """
+        asset_dir = os.path.join("assets", "audio", self.writer_name, slug)
+        os.makedirs(asset_dir, exist_ok=True)
+
+        html_filepath = os.path.join(self.html_save_dir, f"{slug}.html")
+
+        for idx, audio in enumerate(soup.find_all("audio"), start=1):
+            src = audio.get("src")
+            if not src:                                   # nothing to fetch
+                continue
+
+            # Normalise to an absolute URL
+            if src.startswith("//"):
+                abs_src = f"https:{src}"
+            elif src.startswith("/"):
+                abs_src = self.base_substack_url.rstrip("/") + src
+            else:
+                abs_src = src
+            if not abs_src.startswith("http"):
+                continue                                  # skip mailto:, data:, etc.
+
+            try:
+                resp = requests.get(abs_src, timeout=15)
+                if not resp.ok:
+                    print(f"Error fetching audio {abs_src}: HTTP {resp.status_code}")
+                    continue
+
+                ext = os.path.splitext(urlparse(abs_src).path)[1] or ".mp3"
+                filename = f"audio_{idx}{ext}"
+                file_path = os.path.join(asset_dir, filename)
+
+                with open(file_path, "wb") as fh:
+                    fh.write(resp.content)
+
+                # Re-point the <audio> tag at our local copy
+                rel_path = os.path.relpath(file_path, os.path.dirname(html_filepath))
+                audio["src"] = rel_path.replace("\\", "/")
+                audio["controls"] = audio.get("controls", "controls")
+            except Exception as exc:
+                print(f"Error downloading audio {abs_src}: {exc}")
 
 
     def save_to_html_file(self, filepath: str, content: str) -> None:
@@ -271,10 +316,23 @@ class BaseSubstackScraper(ABC):
             else "0"
         )
 
-        content = str(soup.select_one("div.available-content"))
-        md = self.html_to_md(content)
-        md_content = self.combine_metadata_and_content(title, subtitle, date, like_count, md)
-        return title, subtitle, like_count, date, md_content
+        content_section = soup.select_one("div.available-content") or soup
+        html_fragment = str(content_section)
+
+        # Convert article HTML → Markdown
+        md_body = self.html_to_md(html_fragment)
+
+        # ---------- bring in EVERY <audio> tag ------------------------------
+        audio_tags_html = "\n\n".join(str(tag) for tag in soup.find_all("audio"))
+        if audio_tags_html:
+            # Put the player(s) *before* the article for visibility
+            md_body = f"{audio_tags_html}\n\n{md_body}"
+
+        # ---------- combine with metadata header ----------------------------
+        md_complete = self.combine_metadata_and_content(
+            title, subtitle, date, like_count, md_body
+        )
+        return title, subtitle, like_count, date, md_complete
 
     @abstractmethod
     def get_url_soup(self, url: str) -> str:
@@ -355,6 +413,8 @@ class SubstackScraper(BaseSubstackScraper):
             if soup.find("h2", class_="paywall-title"):
                 print(f"Skipping premium article: {url}")
                 return None
+            slug = url.rstrip('/').split('/')[-1]
+            self._download_audio(soup, slug) 
             return soup
         except Exception as e:
             raise ValueError(f"Error fetching page: {e}") from e
@@ -438,6 +498,7 @@ class PremiumSubstackScraper(BaseSubstackScraper):
             self._inject_lazy_image_sources(soup)
             slug = url.rstrip('/').split('/')[-1]
             self._download_images(soup, slug)
+            self._download_audio(soup, slug)
             return soup
         except Exception as e:
             raise ValueError(f"Error fetching page: {e}") from e
