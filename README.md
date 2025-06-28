@@ -1,4 +1,10 @@
-﻿# Substack2Markdown
+﻿# Changes
+
+This is a fork of [Substack2Markdown](https://github.com/timf34/Substack2Markdown). Changes include:
+
+:heavy_check_mark: Images in substack articles are downloaded by PremiumSubstackScraper and embedded in HTML pages.
+
+# Substack2Markdown
 
 Substack2Markdown is a Python tool for downloading free and premium Substack posts and saving them as both Markdown and 
 HTML files, and includes a simple HTML interface to browse and sort through the posts. It will save paid for content as 
@@ -22,6 +28,7 @@ specify them as command line arguments.
 - Converts Substack posts into Markdown files.
 - Generates an HTML file to browse Markdown files.
 - Supports free and premium content (with subscription).
+- Premium Selenium scraper downloads post images so they appear in the exported HTML offline.
 - The HTML interface allows sorting essays by date or likes.
 
 ## Installation
